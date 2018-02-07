@@ -8,7 +8,10 @@
 
 import Foundation
 
-class Item{
+//Encodable = this means that the item type to encode itself to json or plist
+// For it to be encodable all of its properties must be standard data type
+
+class Item : Codable{
     var title : String = ""
     var checkmark : Bool = false
 }

@@ -10,31 +10,18 @@ import UIKit
 
 class TodoListViewController: UITableViewController {
 
-    var itemArray = [Item]() //["Find Myself","Find An Idea", "Make Idea Happen"]
+    var itemArray = [Item]()
+    let dataFilePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("Items.plist")
+    // Object that provides a convenient interface to the contents of the File System / Shared File Manager Object = Singleton //userDomainMask = where we install the Users Personal Items
     
-    //Local Data Storage using User Defaults
-    let defaults = UserDefaults.standard
     
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
         
-      
-        let newItems = Item()
-        newItems.title = "Find Myself"
-        itemArray.append(newItems)
+        print(dataFilePath)
         
-        let newItems2 = Item()
-        newItems2.title = "Find An Idea"
-        itemArray.append(newItems2)
-        
-        let newItems3 = Item()
-        newItems3.title = "Make Idea Happen"
-        itemArray.append(newItems3)
-        
-        if let items = defaults.array(forKey: "TodoListArray") as? [Item]{
-            itemArray = items
-        }
+        loadItems()
     }
 
     //MARK - Tableview Datasourcew Methods
@@ -49,18 +36,11 @@ class TodoListViewController: UITableViewController {
         
         cell.textLabel?.text = item.title
         
-        //Shorten this code with the Swift Ternary Operator ==>
+        //Shorten with the Swift Ternary Operator ==>
         // value = condition ? valueIfTrue : valueIfFalse
         //Dont need to add condition because item.done is a bool
         
-        cell.accessoryType = item.done ? .checkmark : .none
-        
-//        if item.done == true {
-//            cell.accessoryType = .checkmark
-//        }
-//        else {
-//            cell.accessoryType = .none
-//        }
+        cell.accessoryType = item.checkmark ? .checkmark : .none
         
         return cell
     }
@@ -75,7 +55,7 @@ class TodoListViewController: UITableViewController {
         itemArray[indexPath.row].checkmark = !itemArray[indexPath.row].checkmark
         // ! is reverses the value of the .checkmark
         
-        tableView.reloadData() // This also reloads the Cell
+        saveItems()
         
         tableView.deselectRow(at: indexPath, animated: true)
         
@@ -96,9 +76,9 @@ class TodoListViewController: UITableViewController {
             
             self.itemArray.append(newItem)
             
-            self.defaults.set(self.itemArray, forKey: "TodoListArray")
+            self.saveItems()
             
-            self.tableView.reloadData() //Reloard the data of the tableview
+            //We must stop using UserDefaults because of it cannot save our own custom data type Item! Therefore antother solution must be found at all cost! UserDefaults can only take standard data! Also it is not a database!
         }
         alert.addTextField{ (alertTextField) in
             alertTextField.placeholder = "Create New Item"
@@ -108,6 +88,30 @@ class TodoListViewController: UITableViewController {
         alert.addAction(action)
         
         present(alert, animated: true, completion: nil)
+    }
+    
+    func saveItems(){ // Encodes the data
+        let encoder = PropertyListEncoder()
+        do{
+            let data = try encoder.encode(self.itemArray)
+            try data.write(to: dataFilePath!)
+        }
+        catch {
+            print("Error encoding item array \(error)")
+        }
+        //Reloard the data of the tableview
+        tableView.reloadData()
+    }
+    func loadItems(){ //Decodes the data
+        if let data = try? Data(contentsOf: dataFilePath!){
+            let decoder = PropertyListDecoder()
+            do {
+                itemArray = try decoder.decode([Item].self, from: data)
+            }
+            catch{
+                print("Error decoding item array \(error)")
+            }
+        }
     }
 }
 
