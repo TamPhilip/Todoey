@@ -10,7 +10,7 @@ import UIKit
 
 class TodoListViewController: UITableViewController {
 
-    var itemArray = ["Find Myself","Find An Idea", "Make Idea Happen"]
+    var itemArray = [Item]() //["Find Myself","Find An Idea", "Make Idea Happen"]
     
     //Local Data Storage using User Defaults
     let defaults = UserDefaults.standard
@@ -19,16 +19,48 @@ class TodoListViewController: UITableViewController {
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
         
-        if let items = defaults.array(forKey: "TodoListArray") as? [String]{
+      
+        let newItems = Item()
+        newItems.title = "Find Myself"
+        itemArray.append(newItems)
+        
+        let newItems2 = Item()
+        newItems2.title = "Find An Idea"
+        itemArray.append(newItems2)
+        
+        let newItems3 = Item()
+        newItems3.title = "Make Idea Happen"
+        itemArray.append(newItems3)
+        
+        if let items = defaults.array(forKey: "TodoListArray") as? [Item]{
             itemArray = items
         }
     }
 
     //MARK - Tableview Datasourcew Methods
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "ToDoItemCell", for: indexPath)
+      //  let cell = UITableViewCell(style: .default, reuseIdentifier: "ToDoItemCell")
         
-        cell.textLabel?.text = itemArray[indexPath.row]
+        print("CellForRowAtCalled")
+        
+        let cell = tableView.dequeueReusableCell(withIdentifier: "ToDoItemCell", for: indexPath) //Cells get reused causing multiple checkmarks
+        
+        let item = itemArray[indexPath.row]
+        
+        cell.textLabel?.text = item.title
+        
+        //Shorten this code with the Swift Ternary Operator ==>
+        // value = condition ? valueIfTrue : valueIfFalse
+        //Dont need to add condition because item.done is a bool
+        
+        cell.accessoryType = item.done ? .checkmark : .none
+        
+//        if item.done == true {
+//            cell.accessoryType = .checkmark
+//        }
+//        else {
+//            cell.accessoryType = .none
+//        }
         
         return cell
     }
@@ -36,16 +68,14 @@ class TodoListViewController: UITableViewController {
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return itemArray.count
     }
+    
     //MARK - TableView Delagate Methods
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        //print(itemArray[indexPath.row])
+
+        itemArray[indexPath.row].checkmark = !itemArray[indexPath.row].checkmark
+        // ! is reverses the value of the .checkmark
         
-        if tableView.cellForRow(at: indexPath)?.accessoryType == .checkmark {
-            tableView.cellForRow(at: indexPath)?.accessoryType = .none
-        }
-        else {
-            tableView.cellForRow(at: indexPath)?.accessoryType = .checkmark
-        }
+        tableView.reloadData() // This also reloads the Cell
         
         tableView.deselectRow(at: indexPath, animated: true)
         
@@ -61,7 +91,10 @@ class TodoListViewController: UITableViewController {
         let action = UIAlertAction(title: "Add Item", style: .default) { (action) in
             //what will happen once the user hits the Add Item button on our UIAlert
             
-            self.itemArray.append(textField.text!)
+            let newItem = Item()
+            newItem.title = textField.text!
+            
+            self.itemArray.append(newItem)
             
             self.defaults.set(self.itemArray, forKey: "TodoListArray")
             
