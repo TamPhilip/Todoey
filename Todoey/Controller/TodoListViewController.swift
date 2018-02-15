@@ -5,27 +5,29 @@
 //  Created by Philip Tam on 2018-02-03.
 //  Copyright © 2018 Philip Tam. All rights reserved.
 //
-
 import UIKit
 import CoreData
 
-class TodoListViewController: UITableViewController {
+class TodoListViewController: UITableViewController{
 
-    var itemArray = [Item]()
-    
     let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
+    var itemArray = [Item]()
     // UIApplication.shared.delegate as! AppDelegate goes into the AppDelegate and grabs the persistent container
     // Where from there we grav the context of the persistent container
     
+    var selectedCategory : Category?{ //Nil until we can set it using the destinationVC!
+        didSet{//Everything inside this happens as soon as selectedCategory is set!
+            loadItems() //(Read)
+        }
+    }
     
-    override func viewDidLoad() {
+    override func viewDidLoad(){
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
-        let dataFilePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
-        print(dataFilePath)
         
-        loadItems() //(Read)
-        navigationItem.leftBarButtonItem = editButtonItem
+        print(FileManager.default.urls(for: .documentDirectory, in: .userDomainMask))
+        
+       // navigationItem.leftBarButtonItem = editButtonItem (Create an edit button on the left)
     }
 
     //MARK - Tableview Datasourcew Methods
@@ -66,20 +68,25 @@ class TodoListViewController: UITableViewController {
         tableView.deselectRow(at: indexPath, animated: true)
         
     }
-    override func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
-        return true
-    }
-    override func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCellEditingStyle, forRowAt indexPath: IndexPath) {
-        if (editingStyle == .delete){
-            context.delete(itemArray[indexPath.row]) // This does nothing to the actual Database because it has to be saved to the Database therefore context.save() must be used to update the Database after
-            
-            itemArray.remove(at: indexPath.row)
-                    //This does nothing to the Core Data because it merely updates our itemArray which is used to populate our tableView so that when we reload it were able to reload the freshest items! This should be done after because of the item at the indexPath.row will be gone and cannot be deleted from the context.delete where the context.delete used the itemArray to find the NSManagedObject
-            tableView.deleteRows(at: [indexPath], with: .fade)
-            
-            saveItems()
-        }
-    }
+    
+    
+    //MARK: - EDIT BUTTON
+//    override func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
+//        return true
+//    }
+//    override func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCellEditingStyle, forRowAt indexPath: IndexPath) {
+//        if (editingStyle == .delete){
+//            context.delete(itemArray[indexPath.row]) // This does nothing to the actual Database because it has to be saved to the Database therefore context.save() must be used to update the Database after
+//
+//            itemArray.remove(at: indexPath.row)
+//                    //This does nothing to the Core Data because it merely updates our itemArray which is used to populate our tableView so that when we reload it were able to reload the freshest items! This should be done after because of the item at the indexPath.row will be gone and cannot be deleted from the context.delete where the context.delete used the itemArray to find the NSManagedObject
+//            tableView.deleteRows(at: [indexPath], with: .fade)
+//
+//            saveItems()
+//        }
+//    }
+    
+    
     //MARK - Add New Items
     @IBAction func addButtonPressed(_ sender: UIBarButtonItem) {
        
@@ -96,6 +103,7 @@ class TodoListViewController: UITableViewController {
             //Following the creation it is necessary to fill out the fields! (Create)
             newItem.title = textField.text!
             newItem.checkmark = false
+            newItem.parentCategory = self.selectedCategory
             self.itemArray.append(newItem)
             
             //Following all that we save our Item!
@@ -112,6 +120,7 @@ class TodoListViewController: UITableViewController {
         
         present(alert, animated: true, completion: nil)
     }
+    //MARK: Model Manipulation Methods
     
     func saveItems(){ // Saves the Data from the Context to the Persistent Storage (Create)
         do{
@@ -124,16 +133,55 @@ class TodoListViewController: UITableViewController {
         //Reloard the data of the tableview
         tableView.reloadData()
     }
-    func loadItems(){ //Send fetch request to the context where they grab the Data from the Persistent Storage (Read)
-        
-        // You have to specify the Data Type of the Outpute and the Entity you are trying to request!
+    func loadItems(with request: NSFetchRequest<Item> = Item.fetchRequest(), predicate : NSPredicate? = nil){
+        //Send fetch request to the context where they grab the Data from the Persistent Storage (Read)
         // Array of Items (DATA TYPE) that was stored in the Persistent Storage
-        let request : NSFetchRequest<Item> = Item.fetchRequest()
+        // You have to specify the Data Type of the Outpute and the Entity you are trying to request!
+        
+        let categoryPredicate = NSPredicate(format: "parentCategory MATCHES %@", selectedCategory!.name!)
+        //predicate overwrite each others!
+
+        if let additionalPredicate = predicate {
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [categoryPredicate, additionalPredicate])
+        }
+        else{
+            request.predicate = categoryPredicate
+        }
+        
         do {
             itemArray = try context.fetch(request)
         }
         catch{
             print("Error fetching Data from context \(error)")
+        }
+        tableView.reloadData()
+    }
+}
+
+// MARK: Search Bar Methods
+//SOMETHING NEW I LEARNED: EXTENSION
+extension TodoListViewController : UISearchBarDelegate{ //Try to split up the functionality and that you modularize for debugging and code organization!
+    
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        let request : NSFetchRequest<Item> = Item.fetchRequest()
+        
+        //title of the item %@ = searchBar.text
+        let predicate = NSPredicate(format: "title CONTAINS[cd] %@", searchBar.text!)
+        //NSPredicate is a foundation class that specifies how data should be fetched or filtered. Essentially, its query language!
+        
+        request.sortDescriptors = [NSSortDescriptor(key: "title", ascending: true)]
+        
+        loadItems(with: request, predicate: predicate)
+        
+    }
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+        if searchBar.text?.count == 0{
+            loadItems()
+            
+            DispatchQueue.main.async { //This is done so that our app does not freeze because whenever we are writing methods that affect the User Interface we want it done in the background or else it freezes the app!
+                searchBar.resignFirstResponder() //means that it should not be currently selected
+            } //Is the manager that assigns processes to different threads
+            
         }
     }
 }
