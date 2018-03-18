@@ -19,6 +19,8 @@ class CategoryViewController: UITableViewController {
         super.viewDidLoad()
         
         loadCategories()
+        
+        navigationItem.leftBarButtonItem = editButtonItem
 
     }
     
@@ -40,7 +42,7 @@ class CategoryViewController: UITableViewController {
             try context.save()
         }
         catch {
-            print("Error while saving context \(context)")
+            print("Error while saving context \(error)")
         }
         tableView.reloadData()
     }
@@ -66,6 +68,7 @@ class CategoryViewController: UITableViewController {
             
             newCategory.name = textField.text!
             
+            
             self.categoryArray.append(newCategory)
             
             self.saveCategories()
@@ -78,6 +81,28 @@ class CategoryViewController: UITableViewController {
         present(alert, animated: true, completion: nil)
     }
     
+    //    MARK: - EDIT BUTTON
+    override func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
+        return true
+    }
+    override func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCellEditingStyle, forRowAt indexPath: IndexPath) {
+        if (editingStyle == .delete){
+            context.delete(categoryArray[indexPath.row]) // This does nothing to the actual Database because it has to be saved to the Database therefore context.save() must be used to update the Database after
+            
+            categoryArray.remove(at: indexPath.row)
+            //This does nothing to the Core Data because it merely updates our itemArray which is used to populate our tableView so that when we reload it were able to reload the freshest items! This should be done after because of the item at the indexPath.row will be gone and cannot be deleted from the context.delete where the context.delete used the itemArray to find the NSManagedObject
+            tableView.deleteRows(at: [indexPath], with: .fade)
+            
+            saveCategories()
+        }
+    }
+    //MARK: - Moving Rows Table View Method
+    override func tableView(_ tableView: UITableView, moveRowAt fromIndexPath: IndexPath, to: IndexPath) {
+        let movedObject = self.categoryArray[fromIndexPath.row]
+        categoryArray.remove(at: fromIndexPath.row)
+        categoryArray.insert(movedObject, at: to.row)
+    }
+    
     //MARK: - Table View Delegate Methods
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         performSegue(withIdentifier: "goToItems", sender: self)
@@ -88,6 +113,7 @@ class CategoryViewController: UITableViewController {
         
         if let indexPath = tableView.indexPathForSelectedRow {  //Identify the current row that is selected
            destinationVC.selectedCategory = categoryArray[indexPath.row]
+            destinationVC.selectedCategory?.name = categoryArray[indexPath.row].name!
         }
     }
 }

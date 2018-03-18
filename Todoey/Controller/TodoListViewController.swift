@@ -27,7 +27,8 @@ class TodoListViewController: UITableViewController{
         
         print(FileManager.default.urls(for: .documentDirectory, in: .userDomainMask))
         
-       // navigationItem.leftBarButtonItem = editButtonItem (Create an edit button on the left)
+        navigationItem.rightBarButtonItems?.append(editButtonItem)
+        navigationItem.title = selectedCategory?.name
     }
 
     //MARK - Tableview Datasourcew Methods
@@ -70,21 +71,21 @@ class TodoListViewController: UITableViewController{
     }
     
     
-    //MARK: - EDIT BUTTON
-//    override func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
-//        return true
-//    }
-//    override func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCellEditingStyle, forRowAt indexPath: IndexPath) {
-//        if (editingStyle == .delete){
-//            context.delete(itemArray[indexPath.row]) // This does nothing to the actual Database because it has to be saved to the Database therefore context.save() must be used to update the Database after
-//
-//            itemArray.remove(at: indexPath.row)
-//                    //This does nothing to the Core Data because it merely updates our itemArray which is used to populate our tableView so that when we reload it were able to reload the freshest items! This should be done after because of the item at the indexPath.row will be gone and cannot be deleted from the context.delete where the context.delete used the itemArray to find the NSManagedObject
-//            tableView.deleteRows(at: [indexPath], with: .fade)
-//
-//            saveItems()
-//        }
-//    }
+//    MARK: - EDIT BUTTON
+    override func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
+        return true
+    }
+    override func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCellEditingStyle, forRowAt indexPath: IndexPath) {
+        if (editingStyle == .delete){
+            context.delete(itemArray[indexPath.row]) // This does nothing to the actual Database because it has to be saved to the Database therefore context.save() must be used to update the Database after
+
+            itemArray.remove(at: indexPath.row)
+                    //This does nothing to the Core Data because it merely updates our itemArray which is used to populate our tableView so that when we reload it were able to reload the freshest items! This should be done after because of the item at the indexPath.row will be gone and cannot be deleted from the context.delete where the context.delete used the itemArray to find the NSManagedObject
+            tableView.deleteRows(at: [indexPath], with: .fade)
+
+            saveItems()
+        }
+    }
     
     
     //MARK - Add New Items
@@ -120,6 +121,13 @@ class TodoListViewController: UITableViewController{
         
         present(alert, animated: true, completion: nil)
     }
+    //MARK: - Moving Rows Table View Method
+    override func tableView(_ tableView: UITableView, moveRowAt fromIndexPath: IndexPath, to: IndexPath) {
+        let movedObject = self.itemArray[fromIndexPath.row]
+        itemArray.remove(at: fromIndexPath.row)
+        itemArray.insert(movedObject, at: to.row)
+    }
+    
     //MARK: Model Manipulation Methods
     
     func saveItems(){ // Saves the Data from the Context to the Persistent Storage (Create)
@@ -138,7 +146,7 @@ class TodoListViewController: UITableViewController{
         // Array of Items (DATA TYPE) that was stored in the Persistent Storage
         // You have to specify the Data Type of the Outpute and the Entity you are trying to request!
         
-        let categoryPredicate = NSPredicate(format: "parentCategory MATCHES %@", selectedCategory!.name!)
+        let categoryPredicate = NSPredicate(format: "parentCategory.name MATCHES %@", selectedCategory!.name!)
         //predicate overwrite each others!
 
         if let additionalPredicate = predicate {
