@@ -7,13 +7,13 @@
 //
 
 import UIKit
-import CoreData
+import RealmSwift
 
 class CategoryViewController: UITableViewController {
 
-    var categoryArray = [Category]()
+    var categoryArray : Results<Category>?
     
-    let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
+    let realm = try! Realm()
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -26,34 +26,33 @@ class CategoryViewController: UITableViewController {
     
     //MARK: - Table View DataSource Methods
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return categoryArray.count
+        return categoryArray?.count ?? 1
     }
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "CategoryCell", for: indexPath)
         
-        cell.textLabel?.text = categoryArray[indexPath.row].name
+        cell.textLabel?.text = categoryArray?[indexPath.row].name ?? "No Categories Created Yet"
         
         return cell
     }
 
     //MARK: - Table View Data Manipulation Methods
-    func saveCategories(){
-        do {
-            try context.save()
+    func saveCategories(category: Category){
+        do{
+            try realm.write {
+                realm.add(category)
+            }
         }
-        catch {
-            print("Error while saving context \(error)")
+        catch{
+            print("Error while saving Category \(error)")
         }
+        
         tableView.reloadData()
     }
     func loadCategories(){
-        let request : NSFetchRequest<Category> = Category.fetchRequest()
-        do{
-              categoryArray = try context.fetch(request)
-        }
-        catch{
-            print("Error while fetching Category Data \(error)")
-        }
+        
+        categoryArray = realm.objects(Category.self)
+        
         tableView.reloadData()
     }
     //MARK: - Add New Categories
@@ -64,14 +63,11 @@ class CategoryViewController: UITableViewController {
         let alert = UIAlertController(title: "Add New Category", message: "", preferredStyle: .alert)
         
         let action = UIAlertAction(title: "New Category", style: .default) { (action) in
-            let newCategory = Category(context: self.context)
+            let newCategory = Category()
             
             newCategory.name = textField.text!
             
-            
-            self.categoryArray.append(newCategory)
-            
-            self.saveCategories()
+            self.saveCategories(category: newCategory)
         }
         alert.addTextField { (alertTextField) in
             alertTextField.placeholder = "Insert New Category"
@@ -87,20 +83,17 @@ class CategoryViewController: UITableViewController {
     }
     override func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCellEditingStyle, forRowAt indexPath: IndexPath) {
         if (editingStyle == .delete){
-            context.delete(categoryArray[indexPath.row]) // This does nothing to the actual Database because it has to be saved to the Database therefore context.save() must be used to update the Database after
-            
-            categoryArray.remove(at: indexPath.row)
-            //This does nothing to the Core Data because it merely updates our itemArray which is used to populate our tableView so that when we reload it were able to reload the freshest items! This should be done after because of the item at the indexPath.row will be gone and cannot be deleted from the context.delete where the context.delete used the itemArray to find the NSManagedObject
+            do{
+                try realm.write {
+                    realm.delete(categoryArray![indexPath.row].items)
+                    realm.delete(categoryArray![indexPath.row])
+                }
+            }
+            catch{
+                print("Error while deleting Categories \(error)")
+            }
             tableView.deleteRows(at: [indexPath], with: .fade)
-            
-            saveCategories()
         }
-    }
-    //MARK: - Moving Rows Table View Method
-    override func tableView(_ tableView: UITableView, moveRowAt fromIndexPath: IndexPath, to: IndexPath) {
-        let movedObject = self.categoryArray[fromIndexPath.row]
-        categoryArray.remove(at: fromIndexPath.row)
-        categoryArray.insert(movedObject, at: to.row)
     }
     
     //MARK: - Table View Delegate Methods
@@ -112,8 +105,14 @@ class CategoryViewController: UITableViewController {
         let destinationVC = segue.destination as! TodoListViewController
         
         if let indexPath = tableView.indexPathForSelectedRow {  //Identify the current row that is selected
-           destinationVC.selectedCategory = categoryArray[indexPath.row]
-            destinationVC.selectedCategory?.name = categoryArray[indexPath.row].name!
+           destinationVC.selectedCategory = categoryArray?[indexPath.row]
         }
     }
+    //MARK: - Moving Rows Table View Method
+    //    override func tableView(_ tableView: UITableView, moveRowAt fromIndexPath: IndexPath, to: IndexPath) {
+    //        let movedObject = self.categoryArray[fromIndexPath.row]
+    //        categoryArray.remove(at: fromIndexPath.row)
+    //        categoryArray.insert(movedObject, at: to.row)
+    //    }
+
 }
